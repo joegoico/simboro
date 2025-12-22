@@ -1,0 +1,14 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "dbases.exa.unicen.edu.ar",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "UNICEN db",
+            "database": "Ing25",
+            "username": "unc_250183"
+        }
+    ]
+}
