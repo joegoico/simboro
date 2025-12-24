@@ -34,7 +34,7 @@ simboro/
 ├── docker-compose.yml  # Configuración de contenedores
 ├── pubspec.yaml        # Dependencias de Flutter
 └── package.json        # Gestión de scripts adicionales
-
+```
 ## ⚙️ Instalación y Configuración
 
 Podés correr el proyecto usando **Docker**.
