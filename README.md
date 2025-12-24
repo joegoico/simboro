@@ -34,3 +34,26 @@ simboro/
 ├── docker-compose.yml  # Configuración de contenedores
 ├── pubspec.yaml        # Dependencias de Flutter
 └── package.json        # Gestión de scripts adicionales
+
+## ⚙️ Instalación y Configuración
+
+Podés correr el proyecto usando **Docker**.
+
+### 📋 Requisitos Previos
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (Canal stable)
+* [Python 3.10+](https://www.python.org/downloads/)
+* [Docker & Docker Compose](https://docs.docker.com/get-docker/)
+
+---
+
+### 🐳 Usando Docker
+Esta opción levanta tanto el backend como los servicios necesarios automáticamente.
+
+1. **Clonar el repositorio:**
+   ```bash
+   git clone [https://github.com/joegoico/simboro.git](https://github.com/joegoico/simboro.git)
+   cd simboro
+
+2. **Levantar los contenedores:**
+  ```bash
+  docker-compose up --build
