@@ -1,4 +1,3 @@
-// go_router/router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sistema_gym/objetos/alumno.dart';
@@ -19,64 +18,74 @@ import 'package:sistema_gym/screens/crear_disciplinas.dart';
 import 'package:logging/logging.dart';
 
 final _logger = Logger('Router');
+
+/// Clave global para acceder al estado del navegador desde cualquier lugar del código.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+/// Configuración centralizada de rutas.
+///
+/// Implementa Deep Linking para OAuth y una estructura de Shell para
+/// mantener componentes de UI persistentes (AppBars/Drawers).
 final GoRouter router = GoRouter(
   initialLocation: '/splash',
   navigatorKey: navigatorKey,
   routes: [
+    // --- Ruta de Callback para Autenticación Externa ---
     GoRoute(
-      //host en el androidManifest.xml
       path: '/oauth-callback',
       builder: (BuildContext context, GoRouterState state) {
-        // Aquí puedes obtener los parámetros de la URL, como el 'code' o el 'access_token'
-        // que Supabase te devuelve.
+        // Captura de parámetros de URL tras redirección de Supabase
         final String? code = state.uri.queryParameters['code'];
         final String? accessToken = state.uri.queryParameters['access_token'];
-        final String? error =
-            state
-                .uri
-                .queryParameters['error']; // Por si hay un error en el callback
+        final String? error = state.uri.queryParameters['error'];
 
         if (error != null) {
-          // Manejar el error de autenticación, quizás mostrar un mensaje
           return Scaffold(
             appBar: AppBar(title: const Text('Error de Autenticación')),
             body: Center(child: Text('Error: $error')),
           );
         }
+
+        // Lógica de redirección post-verificación de sesión
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (Supabase.instance.client.auth.currentSession != null) {
-            context.go(
-              '/alumnos',
-            ); // O la pantalla a la que quieras ir después del login
+            context.go('/alumnos');
           } else {
-            _logger.info('Callback code: $code');
-            _logger.info('Callback access_token: $accessToken');
-            // En un caso real, aquí iría la lógica de signInWithOAuth o la espera
-            // del listener de Supabase.
-            context.go(
-              '/login',
-            ); // O una pantalla de error/reintento si la sesión no se establece
+            _logger.info('Callback incompleto - Code: $code');
+            context.go('/login');
           }
         });
 
-        // Mientras esperamos la redirección (o si hay un breve retraso), podemos mostrar un loader
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
     ),
+
+    // --- Estructura de Navegación Principal (Shell) ---
     ShellRoute(
       builder: (BuildContext context, GoRouterState state, Widget child) {
+        // Enuelve todas las rutas hijas en un Scaffold base persistente
         return ShellScaffoldWrapper(state: state, child: child);
       },
       routes: [
+        // Redirecciones lógicas
         GoRoute(path: '/', redirect: (context, state) => '/alumnos'),
         GoRoute(path: '/home', redirect: (context, state) => '/alumnos'),
+
+        // Pantallas Críticas
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const SplashScreen(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
+        ),
+
+        // Módulos de Gestión
         GoRoute(
           path: '/alumnos',
           builder: (context, state) => const Alumnos(title: 'Alumnos'),
         ),
-        GoRoute(path: '/login', builder: (context, state) => LoginScreen()),
-        GoRoute(path: '/splash', builder: (context, state) => SplashScreen()),
         GoRoute(
           path: '/finanzas',
           builder: (context, state) => const Finanzas(),
@@ -91,32 +100,31 @@ final GoRouter router = GoRouter(
           builder:
               (context, state) => const DiscplinasPage(title: 'Disciplinas'),
         ),
+
+        // Flujos de Onboarding y Configuración
         GoRoute(
           path: '/crearInstitucion',
-          builder: (context, state) {
-            return CreateInstitutionScreen(
-              user: state.extra as Map<String, dynamic>?,
-            );
-          },
+          builder:
+              (context, state) => CreateInstitutionScreen(
+                user: state.extra as Map<String, dynamic>?,
+              ),
         ),
         GoRoute(
           path: '/crearDisciplina',
           builder: (context, state) => const CreateDisciplineScreen(),
         ),
+
+        // Vistas de Detalle (Pasaje de objetos complejos vía 'extra')
         GoRoute(
           path: '/pagos',
-          builder: (context, state) {
-            // Aquí extraemos la lista de pagos que se pasó en extra.
-            final Alumno alumno = state.extra as Alumno;
-            return FechasDePago(alumno: alumno);
-          },
+          builder:
+              (context, state) => FechasDePago(alumno: state.extra as Alumno),
         ),
         GoRoute(
           path: '/precios',
-          builder: (context, state) {
-            final Disciplina disciplina = state.extra as Disciplina;
-            return PreciosPage(disciplina: disciplina);
-          },
+          builder:
+              (context, state) =>
+                  PreciosPage(disciplina: state.extra as Disciplina),
         ),
       ],
     ),

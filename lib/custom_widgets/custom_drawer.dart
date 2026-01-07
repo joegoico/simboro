@@ -4,9 +4,19 @@ import 'package:sistema_gym/providers/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sistema_gym/services/auth_service.dart'; // Agregar import
 
+/// Menú lateral dinámico que centraliza la navegación y ajustes de la app.
+///
+/// Integra [GoRouter] para el movimiento entre pantallas, [Provider] para
+/// la gestión del tema visual y [AuthService] para el control de sesión.
 class CustomDrawer extends StatelessWidget {
   const CustomDrawer({super.key});
 
+  /// Despliega un diálogo de confirmación para el cierre de sesión.
+  ///
+  /// Este método gestiona un flujo complejo de UX:
+  /// 1. Solicita confirmación al usuario.
+  /// 2. Muestra un indicador de progreso (Loading) mientras se comunica con el backend.
+  /// 3. Maneja errores mediante [SnackBar] y asegura la redirección segura al login.
   void _showLogoutDialog(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -14,8 +24,8 @@ class CustomDrawer extends StatelessWidget {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: Text('Cerrar Sesión'),
-          content: Text('¿Estás seguro que deseas cerrar sesión?'),
+          title: const Text('Cerrar Sesión'),
+          content: const Text('¿Estás seguro que deseas cerrar sesión?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -26,10 +36,10 @@ class CustomDrawer extends StatelessWidget {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(dialogContext); // Cerrar diálogo
-                Navigator.of(context).pop(); // Cerrar drawer
+                Navigator.pop(dialogContext); // Cierra el diálogo de pregunta
+                Navigator.of(context).pop(); // Cierra el Drawer lateral
 
-                // Mostrar indicador de carga
+                // Implementación de Loading Overlay para feedback visual
                 showDialog(
                   context: context,
                   barrierDismissible: false,
@@ -44,23 +54,20 @@ class CustomDrawer extends StatelessWidget {
                 );
 
                 try {
-                  // Hacer logout
                   await AuthService.logout(context);
 
-                  // Navegar al login
                   if (context.mounted) {
-                    Navigator.pop(context); // Cerrar loading
+                    Navigator.pop(context); // Remueve el overlay de carga
                     context.go('/login');
                   }
                 } catch (e) {
-                  // En caso de error, cerrar el loading
                   if (context.mounted) {
-                    Navigator.pop(context);
-
-                    // Mostrar error
+                    Navigator.pop(
+                      context,
+                    ); // Remueve el overlay en caso de error
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Error al cerrar sesión'),
+                        content: const Text('Error al cerrar sesión'),
                         backgroundColor: theme.colorScheme.error,
                       ),
                     );
@@ -80,6 +87,7 @@ class CustomDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Escucha los cambios en el tema para actualizar el switch en tiempo real
     final themeNotifier = Provider.of<AppThemeNotifier>(context);
     final theme = Theme.of(context);
 
@@ -87,15 +95,13 @@ class CustomDrawer extends StatelessWidget {
       backgroundColor: theme.colorScheme.surface,
       elevation: 16,
       child: Column(
-        // Cambiar de ListView a Column
         children: [
+          // Cabecera con branding de la institución
           DrawerHeader(
             decoration: BoxDecoration(color: theme.colorScheme.primary),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(height: 10),
                 Text(
                   'Le Groupe Gym',
                   style: TextStyle(
@@ -107,95 +113,55 @@ class CustomDrawer extends StatelessWidget {
             ),
           ),
 
-          // Expanded con ListView para las opciones del menú
+          // Área de navegación con scroll independiente
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                ListTile(
-                  leading: Icon(
-                    Icons.query_stats_rounded,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  title: Text(
-                    'Finanzas',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onTap: () {
-                    Navigator.of(
-                      context,
-                    ).pop(); // Cierra el Drawer antes de navegar
-                    context.go('/finanzas', extra: 'Finanzas');
-                  },
+                _buildMenuItem(
+                  icon: Icons.query_stats_rounded,
+                  title: 'Finanzas',
+                  onTap: () => _navigate(context, '/finanzas', 'Finanzas'),
+                  theme: theme,
                 ),
-                ListTile(
-                  leading: Icon(
-                    Icons.sports_gymnastics,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  title: Text(
-                    'Disciplinas',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onTap: () {
-                    Navigator.of(
-                      context,
-                    ).pop(); // Cierra el Drawer antes de navegar
-                    context.go('/disciplinas', extra: 'Disciplinas');
-                  },
+                _buildMenuItem(
+                  icon: Icons.sports_gymnastics,
+                  title: 'Disciplinas',
+                  onTap:
+                      () => _navigate(context, '/disciplinas', 'Disciplinas'),
+                  theme: theme,
                 ),
-                ListTile(
-                  leading: Icon(
-                    Icons.payments_rounded,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  title: Text(
-                    'Gastos',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onTap: () {
-                    Navigator.of(
-                      context,
-                    ).pop(); // Cierra el Drawer antes de navegar
-                    context.go('/gastos', extra: 'Gastos');
-                  },
+                _buildMenuItem(
+                  icon: Icons.payments_rounded,
+                  title: 'Gastos',
+                  onTap: () => _navigate(context, '/gastos', 'Gastos'),
+                  theme: theme,
                 ),
-                Divider(height: 5.0, color: theme.colorScheme.outlineVariant),
-                ListTile(
-                  leading: Icon(
-                    Icons.payment_outlined,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  title: Text(
-                    'Pagar suscripcion',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onTap: () {
-                    Navigator.of(
-                      context,
-                    ).pop(); // Cierra el Drawer antes de navegar
-                    context.go('/metodoDePago', extra: 'Suscripcion');
-                  },
+                Divider(color: theme.colorScheme.outlineVariant),
+                _buildMenuItem(
+                  icon: Icons.payment_outlined,
+                  title: 'Pagar suscripción',
+                  onTap:
+                      () => _navigate(context, '/metodoDePago', 'Suscripción'),
+                  theme: theme,
                 ),
-                Divider(height: 5.0, color: theme.colorScheme.outlineVariant),
+                Divider(color: theme.colorScheme.outlineVariant),
+
+                // Switch funcional para cambio dinámico de tema (Dark/Light Mode)
                 SwitchListTile(
                   title: Text(
                     'Tema oscuro',
                     style: TextStyle(color: theme.colorScheme.onSurface),
                   ),
                   value: themeNotifier.isDarkTheme,
-                  onChanged: (value) {
-                    themeNotifier.toggleTheme(value);
-                  },
+                  onChanged: (value) => themeNotifier.toggleTheme(value),
                 ),
               ],
             ),
           ),
 
-          // Divider antes del logout
-          Divider(height: 5.0, color: theme.colorScheme.outlineVariant),
-
-          // Botón de logout al fondo
+          // Sección de pie de página: Logout (anclado al fondo por el Column/Expanded)
+          Divider(color: theme.colorScheme.outlineVariant),
           ListTile(
             leading: Icon(Icons.logout, color: theme.colorScheme.error),
             title: Text(
@@ -204,11 +170,29 @@ class CustomDrawer extends StatelessWidget {
             ),
             onTap: () => _showLogoutDialog(context),
           ),
-
-          // Padding inferior
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  /// Helper para estandarizar la navegación desde el Drawer
+  void _navigate(BuildContext context, String route, String extra) {
+    Navigator.of(context).pop(); // Cierre preventivo del Drawer
+    context.go(route, extra: extra);
+  }
+
+  /// Helper para construir los ítems del menú con estilo consistente
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required ThemeData theme,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: theme.colorScheme.onSurface),
+      title: Text(title, style: TextStyle(color: theme.colorScheme.onSurface)),
+      onTap: onTap,
     );
   }
 }

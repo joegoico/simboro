@@ -2,23 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sistema_gym/base_scaffold.dart';
 
+/// Envoltorio inteligente que configura la estructura visual base según la ruta activa.
+///
+/// Este componente centraliza la lógica de visualización del [BaseScaffold],
+/// determinando dinámicamente el título, la visibilidad del menú lateral (Drawer)
+/// y el comportamiento de la navegación hacia atrás.
 class ShellScaffoldWrapper extends StatelessWidget {
+  /// El estado actual de la ruta proporcionado por GoRouter.
   final GoRouterState state;
+
+  /// El contenido específico de la pantalla que se renderizará dentro del Scaffold.
   final Widget child;
 
   const ShellScaffoldWrapper({
-    Key? key,
+    super.key,
     required this.state,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Determina si se requiere botón "back" en función de la ruta.
-    final bool requiereBack = (state.matchedLocation == '/pagos' ||
-        state.matchedLocation == '/precios');
+    // 1. Lógica de Navegación: Determinamos si el usuario está en una sub-pantalla
+    // que requiere un botón de retroceso en lugar del menú lateral.
+    final bool requiereBack =
+        (state.matchedLocation == '/pagos' ||
+            state.matchedLocation == '/precios');
 
-    // Configura el título según la ruta.
+    // 2. Gestión Dinámica de Títulos:
+    // Prioriza rutas específicas y utiliza 'state.extra' como fallback para títulos dinámicos.
     late final String title;
     if (state.matchedLocation == '/pagos') {
       title = 'Pagos';
@@ -28,32 +39,38 @@ class ShellScaffoldWrapper extends StatelessWidget {
       title = state.extra is String ? state.extra as String : 'Le Groupe Gym';
     }
 
-    // Si se requiere botón de back, no mostramos el Drawer.
+    // El Drawer solo se muestra en pantallas de nivel raíz (sin botón back).
     final bool showDrawer = !requiereBack;
-    // Se muestra la barra de búsqueda solo para ciertas rutas.
+
+    // Configuración de visibilidad del buscador según el contexto de la sección.
     final bool showSearchBar =
-    (state.matchedLocation == '/alumnos' || state.matchedLocation == '/deudores');
+        (state.matchedLocation == '/alumnos' ||
+            state.matchedLocation == '/deudores');
 
-    // Si se requiere botón de volver, creamos un widget leading custom.
-    final Widget? leadingWidget = requiereBack
-        ? IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              // Dependiendo de la ruta actual, se redirige a otra.
-              if (GoRouterState.of(context).matchedLocation.startsWith('/pagos')) {
-                context.go('/alumnos');
-              } else if (GoRouterState.of(context).matchedLocation.startsWith('/precios')) {
-                context.go('/disciplinas');
-              }
-            }
-          },
-        )
-        : null;
+    // 3. Implementación del Leading Widget (Botón de Acción Izquierdo):
+    // Maneja tanto el retroceso estándar como redirecciones manuales
+    // en caso de navegación directa (Deep Linking).
+    final Widget? leadingWidget =
+        requiereBack
+            ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  // Fallback de seguridad: asegura que el usuario no quede atrapado
+                  // si entró directamente a una sub-ruta.
+                  if (state.matchedLocation.startsWith('/pagos')) {
+                    context.go('/alumnos');
+                  } else if (state.matchedLocation.startsWith('/precios')) {
+                    context.go('/disciplinas');
+                  }
+                }
+              },
+            )
+            : null;
 
-    // Retornamos el BaseScaffold con los parámetros configurados.
+    // Retorno del Scaffold base con la configuración inyectada.
     return BaseScaffold(
       title: title,
       showDrawer: showDrawer,

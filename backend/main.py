@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from controllers import (
     alumnos_controller, disciplinas_controller, pagos_controller,
@@ -27,3 +28,16 @@ app.include_router(ajuste_controller.router)
 app.include_router(criterioDeuda_controller.router)
 app.include_router(miembros_controller.router)
 
+# --- AGREGA ESTO ---
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Imprime el error exacto en la consola
+    print(f"\n❌ ERROR DE VALIDACIÓN 422:")
+    print(f"--> Cuerpo recibido: {exc.body}")
+    print(f"--> Errores detallados: {exc.errors()}\n")
+    
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    )
+# -------------------

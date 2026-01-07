@@ -9,9 +9,14 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sistema_gym/providers/finanzas_provider.dart';
 
+/// Formulario de alta de pagos con lógica de selección en cascada.
+///
+/// Este componente coordina tres entidades del sistema:
+/// 1. [Alumnos]: Para vincular el cobro a una persona.
+/// 2. [Disciplinas/Precios]: Para determinar el monto basado en la actividad.
+/// 3. [Finanzas]: Para registrar el ingreso en el balance global.
 class FormNewPayment extends StatefulWidget {
-  const FormNewPayment({super.key}
-);
+  const FormNewPayment({super.key});
 
   @override
   State<FormNewPayment> createState() => _FormNewPaymentState();
@@ -20,12 +25,15 @@ class FormNewPayment extends StatefulWidget {
 class _FormNewPaymentState extends State<FormNewPayment> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _fechaController = TextEditingController();
+
+  // Variables de estado para la selección vinculada
   DateTime? _fechaPago;
   Disciplina? _selectedDiscipline;
-  Alumno? _selectedAlumno; // Almacena el alumno seleccionado
+  Alumno? _selectedAlumno;
   Precio? _selectedPrice;
-  bool applyDiscount = false; // Variable para aplicar descuento
+  bool applyDiscount = false;
 
+  /// Gestiona la selección de fecha y actualiza el controlador visual.
   Future<void> _selectDate(BuildContext context) async {
     DateTime? newSelectedDate = await showDatePicker(
       context: context,
@@ -36,53 +44,58 @@ class _FormNewPaymentState extends State<FormNewPayment> {
     if (newSelectedDate != null) {
       setState(() {
         _fechaPago = newSelectedDate;
-      // Formatea la fecha para mostrarla en el TextFormField
-      _fechaController.text =
-          DateFormat('dd/MM/yyyy').format(newSelectedDate);
-
+        _fechaController.text = DateFormat(
+          'dd/MM/yyyy',
+        ).format(newSelectedDate);
       });
     }
   }
 
-  
-
-  void _submitForm(){
-    if (_formKey.currentState!.validate() && _fechaPago != null && _selectedAlumno != null) {
+  /// Ejecuta la lógica de negocio para persistir el pago.
+  ///
+  /// Realiza tres acciones atómicas:
+  /// 1. Crea la instancia de [Pago].
+  /// 2. Actualiza el historial del [Alumno] seleccionado.
+  /// 3. Notifica al [FinanzasProvider] para actualizar los reportes globales.
+  void _submitForm() {
+    // Validación de seguridad: Campos obligatorios y fecha seleccionada
+    if (_formKey.currentState!.validate() &&
+        _fechaPago != null &&
+        _selectedAlumno != null &&
+        _selectedPrice != null) {
       _formKey.currentState!.save();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.green,
-          content: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 10),
-              Text('Pago registrado con éxito', style: TextStyle(color: Colors.white)),
-            ],
-          ),
-          duration: Duration(seconds: 2),
-        ),
-      ); // Guarda 
-      // Suponiendo que Pago es un objeto que representa el pago
-      Pago nuevoPago = Pago(
-        monto: _selectedPrice!.getPrecio(), // Cambia el monto según la lógica de descuento
+
+      final Pago nuevoPago = Pago(
+        monto: _selectedPrice!.getPrecio(),
         fechaDePago: _fechaPago!,
         descuento: applyDiscount,
       );
-        // Si el usuario confirma, agrega el pago
-        _selectedAlumno!.agregarFechaDePago(nuevoPago);
-        Provider.of<FinanzasProvider>(context, listen: false).agregarPago(nuevoPago);
-        Navigator.pop(context, nuevoPago);
+
+      // Inyección de datos en los modelos correspondientes
+      _selectedAlumno!.agregarFechaDePago(nuevoPago);
+      Provider.of<FinanzasProvider>(
+        context,
+        listen: false,
+      ).agregarPago(nuevoPago);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text('Pago registrado y procesado con éxito'),
+        ),
+      );
+
+      Navigator.pop(context, nuevoPago);
     }
   }
-  
-  
-
 
   @override
   Widget build(BuildContext context) {
-    final disciplinasProvider = Provider.of<DisciplinasProvider>(context).disciplinas; // Obtiene la lista de disciplinas del provider
-    final alumnosProvider = Provider.of<AlumnosModel>(context).alumnos; // Obtiene la lista de alumnos del provider
+    // Inyección de dependencias mediante Provider (Patrón Observer)
+    final disciplinasProvider =
+        Provider.of<DisciplinasProvider>(context).disciplinas;
+    final alumnosProvider = Provider.of<AlumnosModel>(context).alumnos;
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -90,133 +103,149 @@ class _FormNewPaymentState extends State<FormNewPayment> {
         right: 16,
         top: 16,
       ),
-      child: Form(
-        child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16,
-                right: 16,
-                top: 16,
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Nuevo Pago',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    const Text( 'Nuevo Pago', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    TextFormField(
-                      controller: _fechaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Fecha de pago',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.calendar_month_rounded),
-                      ),
-                      readOnly: true, // Esto evita que el usuario escriba manualmente
-                      onTap: (){
-                        _selectDate(context); // Llama a la función para seleccionar la fecha
-                      }, // Función que usará el date picker
-                      validator: (value) =>
-                        value == null || value.isEmpty ? 'Por favor, ingrese una fecha' : null,
-                      // No necesitas onSaved aquí, ya que actualizas directamente en el objeto.
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<Alumno>(
-                      decoration: const InputDecoration(
-                        labelText: 'Alumno',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: alumnosProvider.map((Alumno alumno) {
-                        return DropdownMenuItem<Alumno>(
-                          value: alumno,
-                          child: Text(alumno.getNombre()),
-                        );
-                      }).toList(),
-                      onChanged: (Alumno? newValue) {
-                        setState(() {
-                          _selectedAlumno = newValue;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),     
-                    DropdownButtonFormField<Disciplina>(
-                      value: _selectedDiscipline, // Asignar el valor de la disciplina del alumno
-                      decoration: const InputDecoration(
-                        labelText: 'Disciplina',
-                        border: OutlineInputBorder()),
-                      items: disciplinasProvider.map((Disciplina disciplina) {
-                        return DropdownMenuItem<Disciplina>(
-                          value: disciplina,
-                          child: Text(disciplina.getNombre()),
-                        );
-                      }).toList(),
-                      onChanged: (Disciplina? newValue) {
-                        setState(() {
-                          _selectedDiscipline = newValue;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<Precio>( // Asignar el valor del precio del alumno
-                      decoration: const InputDecoration(
-                        labelText: 'Precio',
-                        border: OutlineInputBorder()),
-                      items: _selectedDiscipline?.getPrecios().map((Precio precio) {
-                        return DropdownMenuItem<Precio>(
-                          value: precio,
-                          child: Text(
-                                '${precio.getPrecio().toStringAsFixed(2)} ARS - ${precio.getCantDias()} días'),
-                        );
-                      }).toList(),
-                      onChanged: (Precio? newValue) {
-                        setState(() {
-                          _selectedPrice = newValue;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Switch(
-                          value: applyDiscount,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              applyDiscount = value ?? false;
-                            });
-                          },
-                        ),
-                        const Text('Aplicar Descuento'),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                            ),
-                            onPressed: _submitForm,
-                            child:  Text('Guardar Pago',style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),),
-                        )),
-                        const SizedBox(width: 15,),
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context); // Cerrar el formulario sin guardar
-                            },
-                            child:  Text('Cancelar',style: TextStyle(color: Theme.of(context).colorScheme.onSecondaryContainer),),
-                          ),)
-                      ],
-                    ),
-                    const SizedBox(height: 10),                   
-                  ],
+              const SizedBox(height: 15),
+
+              // Campo de Fecha: Read-only para integridad de datos
+              TextFormField(
+                controller: _fechaController,
+                decoration: const InputDecoration(
+                  labelText: 'Fecha de pago',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_month_rounded),
                 ),
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                validator:
+                    (value) =>
+                        (value == null || value.isEmpty)
+                            ? 'Ingrese la fecha'
+                            : null,
               ),
-            ),
+              const SizedBox(height: 10),
+
+              // Selector de Alumno
+              DropdownButtonFormField<Alumno>(
+                decoration: const InputDecoration(
+                  labelText: 'Alumno',
+                  border: OutlineInputBorder(),
+                ),
+                items:
+                    alumnosProvider
+                        .map(
+                          (alumno) => DropdownMenuItem(
+                            value: alumno,
+                            child: Text(
+                              '${alumno.getNombre()} ${alumno.getApellido()}',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                onChanged:
+                    (newValue) => setState(() => _selectedAlumno = newValue),
+                validator:
+                    (value) => value == null ? 'Seleccione un alumno' : null,
+              ),
+              const SizedBox(height: 10),
+
+              // Selector de Disciplina: Disparador de la cascada de precios
+              DropdownButtonFormField<Disciplina>(
+                value: _selectedDiscipline,
+                decoration: const InputDecoration(
+                  labelText: 'Disciplina',
+                  border: OutlineInputBorder(),
+                ),
+                items:
+                    disciplinasProvider
+                        .map(
+                          (disciplina) => DropdownMenuItem(
+                            value: disciplina,
+                            child: Text(disciplina.getNombre()),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedDiscipline = newValue;
+                    _selectedPrice = null; // Reset de la cascada
+                  });
+                },
+                validator:
+                    (value) =>
+                        value == null ? 'Seleccione la disciplina' : null,
+              ),
+              const SizedBox(height: 10),
+
+              // Selector de Precio (Dependiente de la disciplina seleccionada)
+              DropdownButtonFormField<Precio>(
+                value: _selectedPrice,
+                decoration: const InputDecoration(
+                  labelText: 'Plan / Precio',
+                  border: OutlineInputBorder(),
+                ),
+                // Lógica de filtrado dinámico
+                items:
+                    _selectedDiscipline
+                        ?.getPrecios()
+                        .map(
+                          (precio) => DropdownMenuItem(
+                            value: precio,
+                            child: Text(
+                              '\$${precio.getPrecio().toStringAsFixed(2)} - ${precio.getCantDias()} días',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                onChanged:
+                    (newValue) => setState(() => _selectedPrice = newValue),
+                validator:
+                    (value) =>
+                        value == null ? 'Seleccione un plan de precio' : null,
+              ),
+
+              // Toggle de Descuento
+              SwitchListTile(
+                title: const Text('¿Aplicar Descuento?'),
+                value: applyDiscount,
+                onChanged: (value) => setState(() => applyDiscount = value),
+              ),
+
+              const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                      ),
+                      onPressed: _submitForm,
+                      child: const Text('Guardar Pago'),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancelar'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

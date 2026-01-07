@@ -3,6 +3,11 @@ import 'custom_widgets/custom_navigation_bar.dart';
 import 'custom_widgets/custom_app_bar.dart';
 import 'custom_widgets/custom_drawer.dart';
 
+/// Widget de envoltorio (Wrapper) para estandarizar el diseño de las pantallas.
+///
+/// Centraliza los componentes comunes como el [CustomAppBar], [CustomDrawer]
+/// y el [CustomBottomNavigationBar], permitiendo configuraciones específicas
+/// por pantalla mediante parámetros booleanos.
 class BaseScaffold extends StatelessWidget {
   final String title;
   final Widget child;
@@ -25,18 +30,25 @@ class BaseScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-
     return Scaffold(
+      // Uso de colores semánticos de Material 3 para el fondo
       backgroundColor: theme.colorScheme.surfaceContainerHigh,
-      // AppBar común
-      appBar: CustomAppBar(showSearchBar: showSearchBar, title: title, customLeading: leading),
-      drawer: showDrawer?
-        CustomDrawer()
-        : null,
+
+      // Cabecera común personalizada
+      appBar: CustomAppBar(
+        showSearchBar: showSearchBar,
+        title: title,
+        customLeading: leading,
+      ),
+
+      // Renderizado condicional del menú lateral
+      drawer: showDrawer ? const CustomDrawer() : null,
+
+      // El contenido principal de cada pantalla
       body: child,
-      bottomNavigationBar:
-        CustomBottomNavigationBar(
-        ),
+
+      // Barra de navegación inferior global
+      bottomNavigationBar: const CustomBottomNavigationBar(),
     );
   }
 }

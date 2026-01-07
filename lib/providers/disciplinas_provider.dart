@@ -6,61 +6,88 @@ import 'package:sistema_gym/services/disciplinas_service.dart';
 import 'package:sistema_gym/services/precios_service.dart';
 import 'package:logging/logging.dart';
 
+/// Clase encargada de administrar el estado global de las actividades deportivas.
+///
+/// Centraliza las operaciones CRUD para las disciplinas y permite la
+/// actualización reactiva de los precios asociados a cada una.
 class DisciplinasProvider extends ChangeNotifier {
+  /// Lista interna que almacena el catálogo de actividades.
   final List<Disciplina> disciplina = [];
+
+  // Servicios de persistencia
   final DisciplinasService _disciplinasService = DisciplinasService();
   final PreciosService _preciosService = PreciosService();
+
   final _logger = Logger('DisciplinasProvider');
   bool _isLoading = false;
 
+  /// Expone las disciplinas de forma segura para evitar mutaciones externas
+  /// accidentales fuera del flujo del Provider.
   List<Disciplina> get disciplinas => List.unmodifiable(disciplina);
+
   bool get isLoading => _isLoading;
 
+  /// Sincroniza el catálogo local con el servidor para una [institucionId].
+  ///
+  /// Implementa el patrón 'Loading State' para permitir que la UI
+  /// renderice indicadores de progreso (shimmers/spinners).
   Future<void> cargarDisciplinas(int institucionId) async {
     _isLoading = true;
-    try {  
-      final disciplinasFromServer = await _disciplinasService.getDisciplinasByInstitucionId(institucionId);
+    try {
+      final disciplinasFromServer = await _disciplinasService
+          .getDisciplinasByInstitucionId(institucionId);
       disciplina.clear();
       disciplina.addAll(disciplinasFromServer);
-
     } catch (e) {
-      _logger.severe('Error al cargar disciplinas: $e');
-      //rethrow;
-    }
-    finally{
+      _logger.severe('Error crítico al cargar catálogo de disciplinas: $e');
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
-  
 
+  /// Registra una nueva actividad deportiva y actualiza la UI.
   Future<void> agregarDisciplina(Disciplina nuevaDisciplina) async {
     try {
-      final disciplinaCreada = await _disciplinasService.createDisciplina(nuevaDisciplina);
+      final disciplinaCreada = await _disciplinasService.createDisciplina(
+        nuevaDisciplina,
+      );
       disciplina.add(disciplinaCreada);
       notifyListeners();
     } catch (e) {
-      _logger.severe('Error al agregar disciplina: $e');
+      _logger.severe('Error al registrar nueva disciplina: $e');
       rethrow;
     }
   }
 
+  /// Elimina una disciplina del catálogo local y remoto.
   Future<void> eliminarDisciplina(Disciplina disci) async {
     try {
       await _disciplinasService.eliminarDisciplina(disci.getId());
       disciplina.remove(disci);
       notifyListeners();
     } catch (e) {
-      _logger.severe('Error al eliminar disciplina: $e');
+      _logger.severe(
+        'Fallo al intentar eliminar la disciplina ${disci.getId()}: $e',
+      );
       rethrow;
     }
   }
-  Future<void> editarDisciplina(Disciplina disci, Disciplina nuevaDisciplina ) async {
+
+  /// Actualiza los metadatos de una disciplina existente.
+  Future<void> editarDisciplina(
+    Disciplina disci,
+    Disciplina nuevaDisciplina,
+  ) async {
     try {
-      final disciplinaEditada = await _disciplinasService.actualizarDisciplina(nuevaDisciplina);
-      final index = disciplinas.indexWhere((d) => d.getId() == nuevaDisciplina.getId());
+      final disciplinaEditada = await _disciplinasService.actualizarDisciplina(
+        nuevaDisciplina,
+      );
+      final index = disciplina.indexWhere(
+        (d) => d.getId() == nuevaDisciplina.getId(),
+      );
       if (index != -1) {
-        disciplinas[index] = disciplinaEditada;
+        disciplina[index] = disciplinaEditada;
         notifyListeners();
       }
     } catch (e) {
@@ -68,13 +95,25 @@ class DisciplinasProvider extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Gestiona la actualización de una tarifa específica dentro de una disciplina.
+  ///
+  /// Este método es clave para mantener la **integridad referencial** en el cliente,
+  /// ya que actualiza el precio en el servidor y sincroniza el objeto anidado
+  /// dentro de la lista de disciplinas.
   void updatePrecio(Disciplina d, Precio nuevoPrecio) {
-    final indexDisciplina = disciplinas.indexWhere((d) => d.getId() == d.getId());
+    // Buscamos la disciplina por ID para asegurar la concordancia
+    final indexDisciplina = disciplina.indexWhere(
+      (element) => element.getId() == d.getId(),
+    );
+
     if (indexDisciplina != -1) {
+      // Persistencia asíncrona (Fire and forget en este caso, o podría ser await)
       _preciosService.updatePrecio(nuevoPrecio);
+
+      // Actualización del modelo de dominio anidado
       disciplina[indexDisciplina].updatePrecio(nuevoPrecio);
       notifyListeners();
     }
   }
-  // Agrega otros métodos, como eliminar o editar, si los necesitas
 }

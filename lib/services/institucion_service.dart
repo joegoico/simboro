@@ -1,24 +1,27 @@
 // services/institucion_service.dart
-import 'dart:convert';
-import 'api_service.dart';
-import '../objetos/institucion.dart';
 import 'package:sistema_gym/services/api_service.dart';
+import '../objetos/institucion.dart';
 import 'package:logging/logging.dart';
 
-class InstitucionService extends ApiService {
-  static const String _endpoint = '/institucion/';
+/// Servicio encargado de la gestión de instituciones deportivas.
+///
+/// Actúa como intermediario entre la capa de UI y [ApiService],
+/// transformando las respuestas JSON en objetos de tipo [Institucion].
+class InstitucionService {
+  // Quitamos la barra final para evitar doble barra // al concatenar IDs
+  static const String _endpoint = '/institucion';
   static final Logger logger = Logger('InstitucionService');
 
-  // Obtener una institución por ID
+  /// Recupera una institución específica por su [id].
+  ///
+  /// Retorna una instancia de [Institucion] si la operación es exitosa,
+  /// o `null` si la institución no existe o ocurre un error de red.
   Future<Institucion?> getInstitucion(int id) async {
     try {
-      final response = await ApiService.get('$_endpoint/$id');
+      final data = await ApiService.get('$_endpoint/$id');
 
-      if (response.statusCode == 200) {
-        return Institucion.fromJson(json.decode(response.body));
-      } else if (response.statusCode == 401) {
-        await ApiService.refreshToken();
-        return getInstitucion(id); // Reintentar
+      if (data != null) {
+        return Institucion.fromJson(data);
       }
       return null;
     } catch (e) {
@@ -27,47 +30,45 @@ class InstitucionService extends ApiService {
     }
   }
 
-  // Crear una nueva institución
+  /// Registra una nueva [institucion] en el sistema.
+  ///
+  /// Envía los datos al servidor y retorna el objeto creado (incluyendo su ID generado).
+  /// Si la API no devuelve datos o falla, retorna `null`.
   Future<Institucion?> createInstitucion(Institucion institucion) async {
     try {
       final jsonInst = institucion.toJson();
       logger.info('Creando institución: $jsonInst');
 
-      // ApiService.post ahora se encargará de los 401 y reintentos.
-      // Si falla permanentemente, lanzará una excepción que capturamos abajo.
-      final responseBody = await ApiService.post(_endpoint, body: jsonInst);
+      final data = await ApiService.post(_endpoint, body: jsonInst);
 
-      if (responseBody != null) {
-        return Institucion.fromJson(responseBody);
+      if (data != null) {
+        return Institucion.fromJson(data);
       }
 
-      logger.warning(
-        'La creación de la institución no devolvió un cuerpo de respuesta.',
-      );
+      logger.warning('La API no devolvió datos al crear la institución.');
       return null;
     } catch (e) {
-      logger.severe('Error final creando institución: $e');
-      // Aquí puedes relanzar el error o devolver null, dependiendo de tu manejo de UI.
+      logger.severe('Error creando institución: $e');
       return null;
     }
   }
 
-  // Actualizar una institución
+  /// Actualiza los datos de una institución existente identificada por [id].
+  ///
+  /// Retorna el objeto [Institucion] actualizado si la operación fue exitosa.
+  /// Si la API no devuelve datos o falla, retorna `null`.
   Future<Institucion?> updateInstitucion(
     int id,
     Institucion institucion,
   ) async {
     try {
-      final json_inst = institucion.toJson();
-      final response = await ApiService.put('$_endpoint/$id', body: json_inst);
+      final jsonInst = institucion.toJson();
 
-      if (response.statusCode == 200) {
-        return Institucion.fromJson(json.decode(response.body));
-      } else if (response.statusCode == 401) {
-        await ApiService.refreshToken();
-        return updateInstitucion(id, institucion);
+      final data = await ApiService.put('$_endpoint/$id', body: jsonInst);
+
+      if (data != null) {
+        return Institucion.fromJson(data);
       }
-      logger.severe('Error actualizando institución: ${response.body}');
       return null;
     } catch (e) {
       logger.severe('Error actualizando institución: $e');
@@ -75,19 +76,14 @@ class InstitucionService extends ApiService {
     }
   }
 
-  // Eliminar una institución
+  /// Elimina una institución del sistema mediante su [id].
+  ///
+  /// Retorna `true` si la eliminación fue confirmada por el servidor,
+  /// o `false` en caso de error.
   Future<bool> deleteInstitucion(int id) async {
     try {
-      final response = await ApiService.delete('$_endpoint/$id');
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return true;
-      } else if (response.statusCode == 401) {
-        await ApiService.refreshToken();
-        return deleteInstitucion(id);
-      }
-      logger.severe('Error eliminando institución: ${response.body}');
-      return false;
+      await ApiService.delete('$_endpoint/$id');
+      return true;
     } catch (e) {
       logger.severe('Error eliminando institución: $e');
       return false;

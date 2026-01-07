@@ -11,15 +11,16 @@ from models.miembros_model import (
     MiembroUpdate,
     UserStatusResponse
 )
+from uuid import UUID
 
 router = APIRouter(prefix="/miembros", tags=["miembros"])
 
 # Instanciamos el servicio (Como es "stateless" y no tiene __init__, esto está bien)
 service = MiembrosService()
 
-@router.get("/{user_id}", response_model=MiembroRead)
+@router.get("/{user_id:uuid}", response_model=MiembroRead)
 async def get_miembro(
-    user_id: str,
+    user_id: UUID,
     supabase_client: Client = Depends(get_supabase_client)
 ):
     """Obtener un miembro por su ID"""
@@ -36,6 +37,7 @@ async def get_miembro_status(
     token: str = Depends(get_token_from_header)
 ):
     """Obtener el status del usuario"""
+    print("llego hasta el back")
     return service.get_miembro_status(supabase_client, token)
 
 @router.get("/institucion/{institucion_id}", response_model=List[MiembroRead])
